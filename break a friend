@@ -3,7 +3,7 @@ local replicatedStorage = game:GetService("ReplicatedStorage")
 local maclib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
 
 local plr = game.Players.LocalPlayer
-local plrModule = require(game:GetService("ReplicatedStorage").Client.Player)
+local plrModule = require(replicatedStorage.Client.Player)
 
 local remotes = replicatedStorage.Remotes
 local ragdolls = #workspace.Ragdolls:GetChildren()
