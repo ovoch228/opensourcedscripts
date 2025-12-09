@@ -6,6 +6,7 @@ local boxesModule = require(game:GetService("ReplicatedStorage").Behaviors.EggBe
 
 local plr = game.Players.LocalPlayer
 local money = plr.leaderstats.Coins
+local viewport = workspace.CurrentCamera.ViewportSize
 
 local tycoon = workspace.Maps[plr.Name .. "Tycoon"]
 
@@ -19,7 +20,7 @@ local status_label
 local window = maclib:Window({
 	Title = "Your bank!",
 	Subtitle = "open sourced script",
-	Size = UDim2.fromOffset(800, 600),
+	Size = UDim2.fromOffset(viewport.X * 0.72, viewport.Y * 0.9), -- 800, 600
 	DragStyle = 1,
 	DisabledWindowControls = {},
 	ShowUserInfo = true,
