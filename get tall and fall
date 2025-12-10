@@ -1,0 +1,215 @@
+local maclib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
+
+local replicatedstorage = game:GetService("ReplicatedStorage")
+local services = replicatedstorage:WaitForChild("Packages"):WaitForChild("Knit"):WaitForChild("Services")
+
+local plr = game.Players.LocalPlayer
+local tall = plr.stats.Studs
+local coins = plr.stats.StringCoin
+local viewport = workspace.CurrentCamera.ViewportSize
+
+local petsModule = require(game:GetService("ReplicatedStorage").Datas.petsData)
+local zones = require(replicatedstorage.Datas.Worlds)
+local foodsModule = require(replicatedstorage.Datas.Foods)
+local getfoodModule = require(replicatedstorage.Datas.FoodsInOrder)
+local knit = require(replicatedstorage.Packages.Knit)
+local general = require(replicatedstorage.Packages.General)
+
+local foodshopController = knit.GetController("FoodShopController")
+local petController = knit.GetController("PetController")
+
+getgenv().autodelete = false
+getgenv().autobuyf = false
+getgenv().autofarm = false
+getgenv().worlds = {}
+getgenv().trophies = {}
+getgenv().pets = {}
+getgenv().selectedworld = 1
+getgenv().selectedtrophy = 1
+getgenv().selectedpets = {}
+
+local index = 0
+local pets_label
+local selected_trophy
+local window = maclib:Window({
+	Title = "Get Tall and Fall",
+	Subtitle = "open sourced script",
+	Size = UDim2.fromOffset(viewport.X * 0.72, viewport.Y * 0.9), -- 800, 600
+	DragStyle = 1,
+	DisabledWindowControls = {},
+	ShowUserInfo = true,
+	Keybind = Enum.KeyCode.RightControl,
+	AcrylicBlur = true,
+})
+
+for petname in petsModule do
+	index = index + 1
+	pets[index] = petname
+end
+
+for i = 1, #workspace.Worlds:GetChildren() do
+	table.insert(worlds, i)
+end
+
+for i = 1, #workspace.Worlds["1"].Trophies:GetChildren() do
+	table.insert(trophies, i) 
+end
+
+-- Functions
+local function updateinfo()
+	local selected_pets = {}
+	for pet, _ in selectedpets do
+		table.insert(selected_pets, pet)
+	end
+
+	pets_label:UpdateBody(table.concat(selected_pets, ", "))
+end
+
+local function autofarmm()
+	local button = workspace.Worlds[selectedworld].Trophies[selectedtrophy].TrophyButton
+	local buttonPressed = false
+	
+	plr.Character.HumanoidRootPart.CFrame = button.CFrame * CFrame.new(0, 5, 0)
+	services:WaitForChild("GetTallService"):WaitForChild("RE"):WaitForChild("remote"):FireServer({kind = "getTallRequest"})
+		
+	while tall.Value < tonumber(zones[selectedworld].Trophies[selectedtrophy].Studs) do
+		task.wait(0.1)	
+	end
+	
+	services:WaitForChild("GetTallService"):WaitForChild("RE"):WaitForChild("remote"):FireServer({kind = "fallRequest"})
+	plr.Character.HumanoidRootPart.CFrame = button.CFrame * CFrame.new(0, 9, 0)
+	
+	connection = button.Touched:Connect(function(plrr)
+		if plrr.Parent == plr.Character then
+			buttonPressed = true
+			connection:Disconnect()
+		end
+	end)
+	
+	while not buttonPressed do
+		task.wait()
+	end
+	
+	task.wait(2.5)
+end
+
+-- Main
+
+window:Notify({
+    Title = "get tall and fall",
+    Description = "recommended to use script on a private server !!!",
+    Lifetime = 4
+})
+
+local tabgroup = window:TabGroup()
+
+local tab = tabgroup:Tab({
+	Name = "Main",
+	Image = "rbxassetid://125500743878117"
+})
+
+local sections = {
+	autofarm = tab:Section({Side = "Left"}),
+	info = tab:Section({Side = "Left"}),
+	automaticstuff = tab:Section({Side = "Right"})
+}
+
+sections.autofarm:Toggle({
+	Name = "Enable Autofarm",
+	Default = false,
+	Callback = function(v)
+		getgenv().autofarm = v
+		while autofarm do
+			autofarmm()
+			task.wait(1)
+		end	
+	end,
+}, "autofarm")
+
+sections.autofarm:Dropdown({
+	Name = "Select World",
+	Search = true,
+	Multi = false,
+	Required = true,
+	Options = worlds,
+	Default = {nil},
+	Callback = function(sworld)
+		selectedworld = sworld
+		selected_trophy:ClearOptions()
+		table.clear(trophies)
+		for i = 1, #workspace.Worlds[sworld].Trophies:GetChildren() do
+			table.insert(trophies, i) 
+		end
+		selected_trophy:InsertOptions(trophies)
+	end,
+}, "selectupgrades")
+
+selected_trophy = sections.autofarm:Dropdown({
+	Name = "Select Trophy",
+	Search = true,
+	Multi = false,
+	Required = true,
+	Options = trophies,
+	Default = {nil},
+	Callback = function(strophy)
+		selectedtrophy = strophy
+	end,
+}, "selectupgrades")
+
+sections.automaticstuff:Toggle({
+	Name = "Auto Buy Fruits",
+	Default = false,
+	Callback = function(v)
+		getgenv().autobuyf = v
+		while autobuyf and task.wait(1) do
+			local currentFruit = foodshopController.equipped
+			local nextFruit = getfoodModule:getNextFood(currentFruit)
+			local cost = general:numberToStringNOPLUS(foodsModule[nextFruit].Cost)
+		
+			if tonumber(coins.Value) >= tonumber(cost) then
+				services:WaitForChild("FoodService"):WaitForChild("RE"):WaitForChild("remote"):FireServer({kind = "foodBuyRequest", foodName = nextFruit})
+			end
+			task.wait(3)
+		end	
+	end,
+}, "autofarm")
+
+sections.automaticstuff:Toggle({
+	Name = "Auto Delete Pets",
+	Default = false,
+	Callback = function(v)
+		getgenv().autodelete = v
+		while autodelete and task.wait(3) do
+			local petsToDelete = {}
+			
+			for uuid, petinfo in petController.all do
+				if not selectedpets[petinfo.name] then
+					table.insert(petsToDelete, uuid)
+				end
+			end
+					
+			if #petsToDelete > 0 then
+				services:WaitForChild("PetService"):WaitForChild("RE"):WaitForChild("remote"):FireServer({deleteds = petsToDelete, kind = "deleteReq"})
+			end
+		end
+	end,
+}, "autofarm")
+
+sections.automaticstuff:Dropdown({
+	Name = "Exclude Pets from Deletion",
+	Search = true,
+	Multi = true,
+	Required = false,
+	Options = pets,
+	Default = {nil},
+	Callback = function(spets)
+		selectedpets = spets
+		updateinfo()
+	end,
+}, "select")
+
+pets_label = sections.info:Paragraph({
+  Header = "Exclude Pets from Deletion",
+  Body = "nothing",
+}, nil)
+
