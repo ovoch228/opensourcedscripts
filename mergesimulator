@@ -26,7 +26,7 @@ local window = maclib:Window({
 })
 
 window:Notify({
-    Title = "get tall and fall",
+    Title = "merge simulator",
     Description = "recommended to use script on a private server !!!",
     Lifetime = 4
 })
