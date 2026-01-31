@@ -118,11 +118,11 @@ local function boxes()
 	if not autofarm_settings.boxes then updatestatus("Off...") return end
 	
 	updatestatus("Buying boxes...")
-	plr.Character.HumanoidRootPart.CFrame = CFrame.new(-837, 15.6, -153)
 	while boughtboxes < placestoupdate do
 		for i = 1, autofarm_settings.attempts do
 			local bestbox = getbestbox()
 			if bestbox then
+				plr.Character.HumanoidRootPart.CFrame = bestbox.Base.CFrame
 				fireproximityprompt(bestbox.Base.PurchasePrompt)
 				boughtboxes = boughtboxes + 1
 			elseif not bestbox then
