@@ -1,0 +1,284 @@
+if game.PlaceId ~= 120656419209274 then return end
+
+local maclib = loadstring(game:HttpGet("https://github.com/biggaboy212/Maclib/releases/latest/download/maclib.txt"))()
+
+local replicatedstorage = game:GetService("ReplicatedStorage")
+
+local plr = game:GetService("Players").LocalPlayer
+
+local sharedmodules = replicatedstorage:WaitForChild("SharedModules")
+
+local remotes = sharedmodules:WaitForChild("Network"):WaitForChild("Remotes")
+local database = sharedmodules:WaitForChild("Database")
+
+local activatedumbellevent = remotes:WaitForChild("Activate Dumbell")
+local upgradecarrylimit = remotes:WaitForChild("Upgrade Carry Limit")
+local upgradeautotrainerevent = remotes:WaitForChild("Upgrade AutoTrainer")
+local upgradewalkspeedevent = remotes:WaitForChild("Upgrade WalkSpeed")
+local buydumbellevent = remotes:WaitForChild("Buy Dumbell")
+local purchasefloorevent = remotes:WaitForChild("Purchase Floor")
+local rebirthevent = remotes:WaitForChild("Rebirth")
+local openeggevent = remotes:WaitForChild("Open Lucky Block")
+
+local plrdata = require(plr.PlayerScripts:WaitForChild("_G"):WaitForChild("Important"):WaitForChild("Data")).DataCache[plr]._data
+local carrylevelsprice = require(database:WaitForChild("CarryLevelPrices"))
+local dumbellsprice = require(database:WaitForChild("Dumbells"))
+local rebirthdata = require(database:WaitForChild("Rebirths"))
+local drilltiers = require(database:WaitForChild("AutoTrainTiers"))
+local walkspeedtiers = require(database:WaitForChild("WalkSpeedTiers"))
+local sharedmodule = require(sharedmodules:WaitForChild("Shared"))
+local baselvlprices = {0,0,0,0,0,0,0,0,0,0,0,0,0,0} -- replicatedstorage.SharedModules.Database.BaseLevelPrices
+
+local viewport = workspace.CurrentCamera.ViewportSize
+
+local uiscale = 90 -- %
+local autodrill = false
+local autoupgradecarry = false
+local autobuybestdrills = false
+local autoupgradeplot = false
+local autorebirth = false
+local autoupgradewalkspeed = false
+local autoupgradeautotrain = false
+local autoopeneggs = false
+
+local basewindowsize_X = 0.72
+local basewindowsize_Y = 0.9
+local max_plot_level = 14
+
+local window = maclib:Window({
+	Title = "Drill for Eggs",
+	Subtitle = "open source",
+	Size = UDim2.fromOffset(viewport.X * basewindowsize_X, viewport.Y * basewindowsize_Y),
+	DragStyle = 1,
+	DisabledWindowControls = {},
+	ShowUserInfo = true,
+	Keybind = Enum.KeyCode.RightControl,
+	AcrylicBlur = false,
+})
+
+local tabgroup = window:TabGroup()
+local misctabgroup = window:TabGroup()
+
+local tab = tabgroup:Tab({Name = "Main", Image = "rbxassetid://125500743878117"})
+local misctab = misctabgroup:Tab({Name = "Settings", Image = "rbxassetid://125500743878117"}) 
+
+local sections = {
+	automaticstuff = tab:Section({Side = "Left"}),
+  upgradestuff = tab:Section({Side = "Right"}),
+  resizewindow = misctab:Section({Side = "Left"})
+}
+
+sections.automaticstuff:Toggle({
+	Name = "Auto Drill",
+	Default = false,
+	Callback = function(v)
+    autodrill = v
+		while autodrill do
+      activatedumbellevent:FireServer()
+      task.wait(0.04)
+    end
+	end,
+}, "autotap")
+
+sections.upgradestuff:Toggle({
+	Name = "Auto Upgrade Carry",
+	Default = false,
+	Callback = function(v)
+    autoupgradecarry = v
+		while autoupgradecarry do
+      local currentlvl = plrdata.CarryLevel
+      local nextPrice = carrylevelsprice[currentlvl + 1]
+
+      if nextPrice and plrdata.Cash >= nextPrice then
+        upgradecarrylimit:FireServer()
+        task.wait(0.5) 
+      end
+      task.wait(1)
+    end
+	end,
+}, "auc")
+
+sections.automaticstuff:Toggle({
+	Name = "Auto Buy Best Drills",
+	Default = false,
+	Callback = function(v)
+    autobuybestdrills = v
+		while autobuybestdrills do
+      local currentdumbellinfo = dumbellsprice[plrdata.EquippedDumbell]
+      local currentdumbellprice = currentdumbellinfo and currentdumbellinfo.Price or 0
+
+      local bestdumbellid = nil
+      local maxprice = 0
+        
+      for id, info in dumbellsprice do
+        if not info.Price or info.RobuxOnly then continue end
+        if info.Price <= currentdumbellprice or table.find(plrdata.UnlockedDumbells, id) then continue end
+        if info.Price <= maxprice then continue end
+        if plrdata.Cash < info.Price then continue end
+
+        maxprice = info.Price
+        bestdumbellid = id
+      end
+        
+      if bestdumbellid then            
+        buydumbellevent:FireServer(bestdumbellid)
+        task.wait(0.5)
+      end
+
+      task.wait(1)
+    end
+	end,
+}, "abbd")
+
+sections.upgradestuff:Toggle({
+	Name = "Auto Rebirth",
+	Default = false,
+	Callback = function(v)
+    autorebirth = v
+		while autorebirth and task.wait(1) do
+      local currentRebirth = plrdata.Rebirth or 0
+      local nextRebirthInfo = rebirthdata[currentRebirth + 1]
+
+      if not nextRebirthInfo then continue end
+      
+      local myPower = plrdata.Strength or 0
+      if myPower < nextRebirthInfo.StrengthRequirement then continue end
+      
+      rebirthevent:FireServer()
+        
+      task.wait(2)
+    end
+	end,
+}, "autotap")
+
+sections.upgradestuff:Toggle({
+	Name = "Auto Upgrade 'AutoTrain'",
+	Default = false,
+	Callback = function(v)
+    autoupgradeautotrain = v
+		 while autoupgradeautotrain do
+        local nextdrilltier = (plrdata.AutoTrainTier or 0) + 1
+        local nextdrillinfo = drilltiers[nextdrilltier]
+
+        local maxcap = 1
+        for _, dumbell in plrdata.UnlockedDumbells do
+          local num = tonumber(dumbell:match("%d+"))
+          if num and num > maxcap then maxcap = num end
+        end
+
+        if nextdrilltier <= maxcap and nextdrillinfo and plrdata.Cash >= (nextdrillinfo.Price or 0) then
+          upgradeautotrainerevent:FireServer()
+        end
+
+        task.wait(1)
+    end
+	end,
+}, "autotap")
+
+sections.upgradestuff:Toggle({
+	Name = "Auto Upgrade Plot",
+	Default = false,
+	Callback = function(v)
+    autoupgradeplot = v
+		 while autoupgradeplot and task.wait(1) do
+        local currentbaselvl = plrdata.BaseLevel or 0
+        local nextlvl = currentbaselvl + 1
+        local nextlvlprice = baselvlprices[nextlvl]
+
+        if not nextlvlprice or (plrdata.Cash or 0) < nextlvlprice then 
+          continue 
+        end
+
+        local maxcap = 1
+        for _, dumbell in plrdata.UnlockedDumbells do
+          local num = tonumber(tostring(dumbell):match("%d+"))
+          if num and num > maxcap then 
+            maxcap = num 
+          end
+        end
+
+        local reqDrill = math.clamp(math.ceil(nextlvl * 40 / max_plot_level - 1e-9), 1, 40)
+
+        if maxcap < reqDrill then
+          continue
+        end
+
+        purchasefloorevent:InvokeServer(nextlvl)
+        task.wait(1)
+    end
+	end,
+}, "autotap")
+
+sections.upgradestuff:Toggle({
+	Name = "Auto Upgrade WalkSpeed",
+	Default = false,
+	Callback = function(v)
+    autoupgradewalkspeed = v
+		while autoupgradewalkspeed do
+      local nextspeedlvl = (plrdata.WalkSpeedLevel or 0) + 1
+      local nextspeedlvlinfo = walkspeedtiers[nextspeedlvl]
+
+      local maxcap = 1
+      for _, dumbell in plrdata.UnlockedDumbells do
+        local num = tonumber(tostring(dumbell):match("%d+"))
+        if num and num > maxcap then 
+          maxcap = num 
+        end
+      end
+
+      if nextspeedlvl <= maxcap and nextspeedlvlinfo and plrdata.Cash >= (nextspeedlvlinfo.Price or 0) then
+        upgradewalkspeedevent:FireServer()
+      end
+      task.wait(1)
+    end
+	end,
+}, "autotap")
+
+sections.automaticstuff:Toggle({
+	Name = "Auto Open Eggs",
+	Default = false,
+	Callback = function(v)
+    autoopeneggs = v
+		while autoopeneggs do
+        if not plrdata.PlotFriends then task.wait(1.5) continue end
+        local currentTime = os.time()
+
+        for uid, friendData in plrdata.PlotFriends do
+          if not friendData.incubating then continue end
+          local finishTime = friendData.finishTime or 0
+          if currentTime >= finishTime then
+            openeggevent:FireServer(uid)
+            task.wait(0.5)
+          end
+        end
+        task.wait(0.3)
+    end
+	end,
+}, "autotap")
+
+-- misc tab
+
+sections.resizewindow:Label({Text = "Window Scaling"})
+
+sections.resizewindow:Slider({
+  Name = "UI Scale",
+  Default = 90,
+  Minimum = 30,
+  Maximum = 110,
+  DisplayMethod = "Percent",
+  Callback = function(value)
+    uiscale = value
+  end,
+})
+
+sections.resizewindow:Button({Name = "Apply Changes",
+  Callback = function()
+    window:SetScale(uiscale / 100)
+  end
+})
+
+sections.resizewindow:Button({Name = "Reset to Default",
+  Callback = function()
+    window:SetScale(1)
+  end
+})
